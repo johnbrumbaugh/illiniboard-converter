@@ -62,3 +62,5 @@ venv/
 
 # illiniboard-converter specific stuff to exclude.
 output/
+illiniboardcom.wordpress*
+illiniboard-small-extract.xml
