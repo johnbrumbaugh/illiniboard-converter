@@ -10,8 +10,6 @@ default_namespace = {
     'dc': 'http://purl.org/dc/elements/1.1/',
     'wp': 'http://wordpress.org/export/1.2/'
 }
-# illiniboardcom.wordpress.2015-11-28.xml
-# illiniboard-small-extract.xml
 tree = ET.parse('illiniboardcom.wordpress.2015-11-28.xml')
 root = tree.getroot()
 channel = root.find('channel')
