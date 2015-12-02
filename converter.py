@@ -40,6 +40,8 @@ for post in channel.findall('item'):
         os.makedirs(directory_name)
     full_file_path = "%s/%s" % (directory_name, file_name)
     markdown_file = open(full_file_path, 'w')
+    page_title = "# %s\n" % title
+    markdown_file.write(page_title.encode('utf8'))
     markdown_file.write(md_content.encode('utf8'))
     markdown_file.close()
 
