@@ -1,6 +1,26 @@
 import xml.etree.cElementTree as ET
-import html2text, os
+import html2text, os, json, yaml, mysql.connector
 from datetime import datetime
+
+
+class ConfigNotFoundError(Exception): pass
+
+
+def read_yaml(filename):
+    """
+
+    :param filename:
+    :return:
+    """
+    if not os.path.isfile(filename):
+        raise ConfigNotFoundError("Could not find the file with the name: %s" % filename)
+
+    yaml_doc = {}
+
+    with open(filename, 'r') as f:
+        yaml_doc = yaml.load(f)
+
+    return yaml_doc
 
 print " ------====== IlliniBoard WordPress Converter ======------"
 default_namespace = {
@@ -10,9 +30,16 @@ default_namespace = {
     'dc': 'http://purl.org/dc/elements/1.1/',
     'wp': 'http://wordpress.org/export/1.2/'
 }
+
+config = read_yaml('db_config.yml')
+db_config = config.get('database').get('development')
+
 tree = ET.parse('illiniboardcom.wordpress.2015-11-28.xml')
+# tree = ET.parse('illiniboard-small-extract.xml')
 root = tree.getroot()
 channel = root.find('channel')
+
+all_categories = set()
 
 for post in channel.findall('item'):
     title = post.find('title').text
@@ -46,3 +73,35 @@ for post in channel.findall('item'):
     markdown_file.close()
 
     print "----> File write complete."
+
+    # Generate Category Information
+    category_title = post.find('category').text
+    category_slug = post.find('category').get('nicename', "none")
+
+    category = {'title': category_title, 'slug': category_slug}
+
+    all_categories.add(json.dumps(category))
+
+print "-------------------------------"
+print "Final Category List:"
+for cat in all_categories:
+    my_cat = json.loads(cat)
+    print "%s: %s" % (my_cat.get('title'), my_cat.get('slug'))
+
+    # Save the Category Information into the Database.
+    try:
+        db_conn = mysql.connector.connect(**db_config)
+        cursor = db_conn.cursor()
+        query = ("INSERT INTO category (slug, title) VALUES (%s, %s)")
+        data_category = (my_cat.get('slug'), my_cat.get('title'))
+        cursor.execute(query, data_category)
+    except mysql.connector.Error as error:
+        print "[save_category] :: error number=%s" % error.errno
+        print "[save_category] :: error=%s" % error
+        return_value = False
+    else:
+        db_conn.commit()
+        cursor.close()
+        db_conn.close()
+
+print "Categories Saved to %s" % db_config.get('host')

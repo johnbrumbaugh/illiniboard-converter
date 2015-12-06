@@ -64,3 +64,4 @@ venv/
 output/
 illiniboardcom.wordpress*
 illiniboard-small-extract.xml
+db_config.yml
