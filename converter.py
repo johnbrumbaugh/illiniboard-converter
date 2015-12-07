@@ -82,6 +82,28 @@ for post in channel.findall('item'):
 
     all_categories.add(json.dumps(category))
 
+    print "----> Saving Category Link to Story in Database."
+    # directory_name = 'output/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day)
+    # file_name = '%s.md' % slug
+
+    try:
+        story_link = '/story/%s/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day, slug)
+        db_conn = mysql.connector.connect(**db_config)
+        cursor = db_conn.cursor()
+        query = ("INSERT INTO category_story (category_slug, story_link) VALUES (%s, %s)")
+        data_category_link = (category_slug, story_link)
+        cursor.execute(query, data_category_link)
+    except mysql.connector.Error as error:
+        print "[save_category_link] :: error number=%s" % error.errno
+        print "[save_category_link] :: error=%s" % error
+    else:
+        db_conn.commit()
+        cursor.close()
+        db_conn.close()
+
+    print "----> Category Link Saved to Database."
+
+
 print "-------------------------------"
 print "Final Category List:"
 for cat in all_categories:
@@ -98,7 +120,6 @@ for cat in all_categories:
     except mysql.connector.Error as error:
         print "[save_category] :: error number=%s" % error.errno
         print "[save_category] :: error=%s" % error
-        return_value = False
     else:
         db_conn.commit()
         cursor.close()
