@@ -40,6 +40,7 @@ root = tree.getroot()
 channel = root.find('channel')
 
 all_categories = set()
+all_slugs = set()
 
 for post in channel.findall('item'):
     title = post.find('title').text
@@ -83,9 +84,6 @@ for post in channel.findall('item'):
     all_categories.add(json.dumps(category))
 
     print "----> Saving Category Link to Story in Database."
-    # directory_name = 'output/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day)
-    # file_name = '%s.md' % slug
-
     try:
         story_link = '/story/%s/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day, slug)
         db_conn = mysql.connector.connect(**db_config)
@@ -103,6 +101,8 @@ for post in channel.findall('item'):
 
     print "----> Category Link Saved to Database."
 
+    # Save the slug information to eventually write it to the file.
+    all_slugs.add(slug)
 
 print "-------------------------------"
 print "Final Category List:"
@@ -126,3 +126,11 @@ for cat in all_categories:
         db_conn.close()
 
 print "Categories Saved to %s" % db_config.get('host')
+
+print "-------------------------------"
+print "Writing Final Imported Slug List"
+slug_file = open('slug_list.txt', 'w')
+for slug in all_slugs:
+    slug_file.write('%s\n' % slug)
+slug_file.close()
+print "----> Slug File Written."
