@@ -1,6 +1,7 @@
 import xml.etree.cElementTree as ET
 import html2text, os, json, yaml, mysql.connector
 from datetime import datetime
+from tqdm import tqdm
 
 
 class ConfigNotFoundError(Exception): pass
@@ -42,7 +43,7 @@ channel = root.find('channel')
 all_categories = set()
 all_slugs = set()
 
-for post in channel.findall('item'):
+for post in tqdm(channel.findall('item')):
     title = post.find('title').text
     story_id = post.find('wp:post_id', default_namespace).text
     posted_date_string = post.find('wp:post_date', default_namespace).text
@@ -57,12 +58,12 @@ for post in channel.findall('item'):
     directory_name = 'output/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day)
     file_name = '%s.md' % slug
 
-    print "*** Processing Story: %s ***" % title
-    print "----> ID: %s" % story_id
-    print "----> Posted Date: Year=%s, Month=%s, Day=%s" % (posted_date.year, posted_date.month, posted_date.day)
-    print "----> URL Slug: %s" % slug
-    print "----> Writing to directory: %s" % directory_name
-    print "----> Writing file name: %s" % file_name
+    # print "*** Processing Story: %s ***" % title
+    # print "----> ID: %s" % story_id
+    # print "----> Posted Date: Year=%s, Month=%s, Day=%s" % (posted_date.year, posted_date.month, posted_date.day)
+    # print "----> URL Slug: %s" % slug
+    # print "----> Writing to directory: %s" % directory_name
+    # print "----> Writing file name: %s" % file_name
 
     if not os.path.exists(directory_name):
         os.makedirs(directory_name)
@@ -73,7 +74,7 @@ for post in channel.findall('item'):
     markdown_file.write(md_content.encode('utf8'))
     markdown_file.close()
 
-    print "----> File write complete."
+    # print "----> File write complete."
 
     # Generate Category Information
     category_title = post.find('category').text
@@ -83,7 +84,7 @@ for post in channel.findall('item'):
 
     all_categories.add(json.dumps(category))
 
-    print "----> Saving Category Link to Story in Database."
+    # print "----> Saving Category Link to Story in Database."
     try:
         story_link = '/story/%s/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day, slug)
         db_conn = mysql.connector.connect(**db_config)
@@ -99,16 +100,14 @@ for post in channel.findall('item'):
         cursor.close()
         db_conn.close()
 
-    print "----> Category Link Saved to Database."
+    # print "----> Category Link Saved to Database."
 
     # Save the slug information to eventually write it to the file.
     all_slugs.add(slug)
 
-print "-------------------------------"
-print "Final Category List:"
-for cat in all_categories:
+print "Saving Categories to %s" % db_config.get('host')
+for cat in tqdm(all_categories):
     my_cat = json.loads(cat)
-    print "%s: %s" % (my_cat.get('title'), my_cat.get('slug'))
 
     # Save the Category Information into the Database.
     try:
@@ -125,12 +124,9 @@ for cat in all_categories:
         cursor.close()
         db_conn.close()
 
-print "Categories Saved to %s" % db_config.get('host')
-
-print "-------------------------------"
 print "Writing Final Imported Slug List"
 slug_file = open('slug_list.txt', 'w')
-for slug in all_slugs:
+for slug in tqdm(all_slugs):
     slug_file.write('%s\n' % slug)
 slug_file.close()
-print "----> Slug File Written."
+
