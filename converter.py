@@ -35,8 +35,8 @@ default_namespace = {
 config = read_yaml('db_config.yml')
 db_config = config.get('database').get('development')
 
-tree = ET.parse('illiniboardcom.wordpress.2015-11-28.xml')
-# tree = ET.parse('illiniboard-small-extract.xml')
+tree = ET.parse('illiniboardcom.wordpress.2016-05-14.xml')
+# tree = ET.parse('illiniboard-small-extract-0514.xml')
 root = tree.getroot()
 channel = root.find('channel')
 
@@ -50,6 +50,8 @@ for post in tqdm(channel.findall('item')):
     posted_date = datetime.strptime(posted_date_string, "%Y-%m-%d %H:%M:%S")
     slug = post.find('wp:post_name', default_namespace).text
     full_content = post.find('content:encoded', default_namespace).text
+    if not full_content:
+        full_content = ""
     full_content = full_content.replace('\n', '<br />')
 
     md_converter = html2text.HTML2Text()
@@ -58,12 +60,23 @@ for post in tqdm(channel.findall('item')):
     directory_name = 'output/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day)
     file_name = '%s.md' % slug
 
+    # Getting Flag Information.
+    is_featured = "0"
+    is_free = "1"
+    for category in post.findall('category'):
+        if category.get('nicename', "none") == "illini":
+            is_free = "0"
+        if category.get('nicename', "none") == "top-story":
+            is_featured = "1"
+
     # print "*** Processing Story: %s ***" % title
     # print "----> ID: %s" % story_id
     # print "----> Posted Date: Year=%s, Month=%s, Day=%s" % (posted_date.year, posted_date.month, posted_date.day)
     # print "----> URL Slug: %s" % slug
     # print "----> Writing to directory: %s" % directory_name
     # print "----> Writing file name: %s" % file_name
+    # print "----> Featured Story: %s" % is_featured
+    # print "----> Free Story: %s" % is_free
 
     if not os.path.exists(directory_name):
         os.makedirs(directory_name)
@@ -74,33 +87,51 @@ for post in tqdm(channel.findall('item')):
     markdown_file.write(md_content.encode('utf8'))
     markdown_file.close()
 
-    # print "----> File write complete."
+    #print "----> File write complete."
 
-    # Generate Category Information
-    category_title = post.find('category').text
-    category_slug = post.find('category').get('nicename', "none")
-
-    category = {'title': category_title, 'slug': category_slug}
-
-    all_categories.add(json.dumps(category))
-
-    # print "----> Saving Category Link to Story in Database."
+    #print "----> Saving Article into the Database."
     try:
-        story_link = '/story/%s/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day, slug)
         db_conn = mysql.connector.connect(**db_config)
         cursor = db_conn.cursor()
-        query = ("INSERT INTO category_story (category_slug, story_link) VALUES (%s, %s)")
-        data_category_link = (category_slug, story_link)
-        cursor.execute(query, data_category_link)
+        query = ("INSERT INTO article (title, body, url_slug, date_created, date_published, featured_story, free_story) \
+                VALUES (%s, %s, %s, %s, %s, %s, %s)")
+        # data_category_link = (category_slug, story_link)
+        article_data = (title, md_content, slug, posted_date, posted_date, is_featured, is_free)
+        cursor.execute(query, article_data)
     except mysql.connector.Error as error:
-        print "[save_category_link] :: error number=%s" % error.errno
-        print "[save_category_link] :: error=%s" % error
+        print "[save_article_in_db] :: error number=%s" % error.errno
+        print "[save_article_in_db] :: error=%s" % error
     else:
         db_conn.commit()
         cursor.close()
         db_conn.close()
 
-    # print "----> Category Link Saved to Database."
+    # Generate Category Information
+    if post.find('category'):
+        category_title = post.find('category').text
+        category_slug = post.find('category').get('nicename', "none")
+
+        category = {'title': category_title, 'slug': category_slug}
+
+        all_categories.add(json.dumps(category))
+
+        #print "----> Saving Category Link to Story in Database."
+        try:
+            story_link = '/story/%s/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day, slug)
+            db_conn = mysql.connector.connect(**db_config)
+            cursor = db_conn.cursor()
+            query = ("INSERT INTO category_story (category_slug, story_link) VALUES (%s, %s)")
+            data_category_link = (category_slug, story_link)
+            cursor.execute(query, data_category_link)
+        except mysql.connector.Error as error:
+            print "[save_category_link] :: error number=%s" % error.errno
+            print "[save_category_link] :: error=%s" % error
+        else:
+            db_conn.commit()
+            cursor.close()
+            db_conn.close()
+
+    #print "----> Category Link Saved to Database."
 
     # Save the slug information to eventually write it to the file.
     all_slugs.add(slug)
