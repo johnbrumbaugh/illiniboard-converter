@@ -35,7 +35,7 @@ default_namespace = {
 config = read_yaml('db_config.yml')
 db_config = config.get('database').get('development')
 
-tree = ET.parse('illiniboardcom.wordpress.2016-05-14.xml')
+tree = ET.parse('illiniboardcom.wordpress.2016-05-17.xml')
 # tree = ET.parse('illiniboard-small-extract-0514.xml')
 root = tree.getroot()
 channel = root.find('channel')
