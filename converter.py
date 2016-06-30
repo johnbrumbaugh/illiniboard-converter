@@ -35,17 +35,40 @@ default_namespace = {
 config = read_yaml('db_config.yml')
 db_config = config.get('database').get('development')
 
-tree = ET.parse('illiniboardcom.wordpress.2016-05-17.xml')
-# tree = ET.parse('illiniboard-small-extract-0514.xml')
-root = tree.getroot()
-channel = root.find('channel')
+# Parse out the image feed, and place all of the data into an in-memory table accessible by the Post ID as a key.
+image_tree = ET.parse('illiniboardcom.wordpress.2016-05-17.image.xml')
+image_root = image_tree.getroot()
+image_channel = image_root.find('channel')
+
+all_images = dict()
+print "Parsing Out the Images from the Image Feed."
+for item in tqdm(image_channel.findall('item')):
+    image_link = item.find('wp:attachment_url', default_namespace).text
+    image_post_id = item.find('wp:post_parent', default_namespace).text
+    all_images[image_post_id] = image_link
+
+print "Completed Parsing Images, all_images size is {%s}" % len(all_images)
+
+# Parse out the article feeds.
+print "Starting to Parse the Articles from the Article Feed"
+article_tree = ET.parse('illiniboardcom.wordpress.2016-05-17.xml')
+# article_tree = ET.parse('illiniboard-small-extract-0514.xml')
+article_root = article_tree.getroot()
+article_channel = article_root.find('channel')
 
 all_categories = set()
 all_slugs = set()
 
-for post in tqdm(channel.findall('item')):
+for post in tqdm(article_channel.findall('item')):
     title = post.find('title').text
     story_id = post.find('wp:post_id', default_namespace).text
+    author = post.find('dc:creator', default_namespace).text
+
+    try:
+        featured_image_link = all_images[story_id]
+    except KeyError:
+        featured_image_link = None
+
     posted_date_string = post.find('wp:post_date', default_namespace).text
     posted_date = datetime.strptime(posted_date_string, "%Y-%m-%d %H:%M:%S")
     slug = post.find('wp:post_name', default_namespace).text
@@ -63,7 +86,9 @@ for post in tqdm(channel.findall('item')):
     # Getting Flag Information.
     is_featured = "0"
     is_free = "1"
+    categories = []
     for category in post.findall('category'):
+        categories.append(category.get('nicename', 'none'))
         if category.get('nicename', "none") == "illini":
             is_free = "0"
         if category.get('nicename', "none") == "top-story":
@@ -77,13 +102,26 @@ for post in tqdm(channel.findall('item')):
     # print "----> Writing file name: %s" % file_name
     # print "----> Featured Story: %s" % is_featured
     # print "----> Free Story: %s" % is_free
+    # print "----> Featured Image: %s" % featured_image_link
 
     if not os.path.exists(directory_name):
         os.makedirs(directory_name)
     full_file_path = "%s/%s" % (directory_name, file_name)
     markdown_file = open(full_file_path, 'w')
-    page_title = "# %s\n" % title
-    markdown_file.write(page_title.encode('utf8'))
+    # Start to write the header
+    markdown_file.write("Start-Header\n".encode('utf8'))
+    markdown_file.write(("Title: %s\n" % title).encode('utf8'))
+    markdown_file.write(("Tags: %s\n" % categories).encode('utf8'))
+    markdown_file.write(("Category: %s\n" % categories).encode('utf8'))
+    markdown_file.write(("Featured-Image: %s\n" % featured_image_link).encode('utf8'))
+    markdown_file.write(("Author: %s\n" % author).encode('utf8'))
+    markdown_file.write(("Twitter-Handle: @alioneye\n").encode('utf8'))
+    if is_free == "0":
+        markdown_file.write("Free-Story: False\n".encode('utf8'))
+    else:
+        markdown_file.write("Free-Story: True\n".encode('utf8'))
+    markdown_file.write("End-Header\n".encode('utf8'))
+
     markdown_file.write(md_content.encode('utf8'))
     markdown_file.close()
 
@@ -93,10 +131,10 @@ for post in tqdm(channel.findall('item')):
     try:
         db_conn = mysql.connector.connect(**db_config)
         cursor = db_conn.cursor()
-        query = ("INSERT INTO article (title, body, url_slug, date_created, date_published, featured_story, free_story) \
-                VALUES (%s, %s, %s, %s, %s, %s, %s)")
+        query = ("INSERT INTO article (title, body, url_slug, date_created, date_published, featured_story, free_story, \
+                featured_image_link) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)")
         # data_category_link = (category_slug, story_link)
-        article_data = (title, md_content, slug, posted_date, posted_date, is_featured, is_free)
+        article_data = (title, md_content, slug, posted_date, posted_date, is_featured, is_free, featured_image_link)
         cursor.execute(query, article_data)
     except mysql.connector.Error as error:
         print "[save_article_in_db] :: error number=%s" % error.errno
