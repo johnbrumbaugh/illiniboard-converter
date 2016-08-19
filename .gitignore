@@ -66,3 +66,5 @@ illiniboardcom.wordpress*
 illiniboard-small-extract.xml
 db_config.yml
 slug_list.txt
+converter_test.xml
+snippet_test.py

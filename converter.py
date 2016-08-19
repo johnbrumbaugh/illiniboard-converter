@@ -23,6 +23,89 @@ def read_yaml(filename):
 
     return yaml_doc
 
+
+def get_trim_distance( a, b, c, d ):
+    """
+
+    :param a:
+    :param b:
+    :param c:
+    :param d:
+    :return:
+    """
+    trim_distance = 0
+
+    if abs(a) < abs(b):
+        if abs(a) < abs(c):
+            if abs(a) < abs(d):
+                trim_distance = a
+            else:
+                trim_distance = d
+        else:
+            if abs(c) < abs(d):
+                trim_distance = c
+            else:
+                trim_distance = d
+    else:
+        if abs(b) < abs(c):
+            if abs(b) < abs(d):
+                trim_distance = b
+            else:
+                trim_distance = d
+        else:
+            if abs(c) < abs(d):
+                trim_distance = c
+            else:
+                trim_distance = d
+
+    return trim_distance
+
+
+def create_snippet(text):
+    """
+
+    :param text:
+    :return:
+    """
+    if len(text) < 500:
+        return text
+
+    initial_cut = text[:550]
+
+    last_index_of_space = initial_cut.rfind(' ')
+    last_index_of_semicolon = initial_cut.rfind(';')
+    last_index_of_comma = initial_cut.rfind(',')
+    last_index_of_period = initial_cut.rfind('.')
+
+    first_index_of_space = initial_cut.find(' ' )
+    first_index_of_semicolon = initial_cut.find(';')
+    first_index_of_comma = initial_cut.find(',')
+    first_index_period = initial_cut.find('.')
+
+    if 500 - last_index_of_space < first_index_of_space - 500:
+        distance_of_space = 500 - last_index_of_space
+    else:
+        distance_of_space = first_index_of_space - 500
+
+    if 500 - last_index_of_semicolon < first_index_of_semicolon - 500:
+        distance_of_semicolon = 500 - last_index_of_semicolon
+    else:
+        distance_of_semicolon = first_index_of_semicolon - 500
+
+    if 500 - last_index_of_comma < first_index_of_comma - 500:
+        distance_of_comma = 500 - last_index_of_comma
+    else:
+        distance_of_comma = first_index_of_comma - 500
+
+    if 500 - last_index_of_period < first_index_period - 500:
+        distance_of_period = 500 - last_index_of_period
+    else:
+        distance_of_period = first_index_period - 500
+
+    trim_distance = get_trim_distance(distance_of_comma, distance_of_period, distance_of_space, distance_of_semicolon)
+    return text[:abs(trim_distance)]
+
+
 print " ------====== IlliniBoard WordPress Converter ======------"
 default_namespace = {
     'excerpt': 'http://wordpress.org/export/1.2/excerpt/',
@@ -52,7 +135,7 @@ print "Completed Parsing Images, all_images size is {%s}" % len(all_images)
 # Parse out the article feeds.
 print "Starting to Parse the Articles from the Article Feed"
 article_tree = ET.parse('illiniboardcom.wordpress.2016-05-17.xml')
-# article_tree = ET.parse('illiniboard-small-extract-0514.xml')
+# article_tree = ET.parse('illiniboardcom.singleentry.xml')
 article_root = article_tree.getroot()
 article_channel = article_root.find('channel')
 
@@ -94,15 +177,15 @@ for post in tqdm(article_channel.findall('item')):
         if category.get('nicename', "none") == "top-story":
             is_featured = "1"
 
-    # print "*** Processing Story: %s ***" % title
-    # print "----> ID: %s" % story_id
-    # print "----> Posted Date: Year=%s, Month=%s, Day=%s" % (posted_date.year, posted_date.month, posted_date.day)
-    # print "----> URL Slug: %s" % slug
-    # print "----> Writing to directory: %s" % directory_name
-    # print "----> Writing file name: %s" % file_name
-    # print "----> Featured Story: %s" % is_featured
-    # print "----> Free Story: %s" % is_free
-    # print "----> Featured Image: %s" % featured_image_link
+    #print "*** Processing Story: %s ***" % title
+    #print "----> ID: %s" % story_id
+    #print "----> Posted Date: Year=%s, Month=%s, Day=%s" % (posted_date.year, posted_date.month, posted_date.day)
+    #print "----> URL Slug: %s" % slug
+    #print "----> Writing to directory: %s" % directory_name
+    #print "----> Writing file name: %s" % file_name
+    #print "----> Featured Story: %s" % is_featured
+    #print "----> Free Story: %s" % is_free
+    #print "----> Featured Image: %s" % featured_image_link
 
     if not os.path.exists(directory_name):
         os.makedirs(directory_name)
@@ -115,7 +198,7 @@ for post in tqdm(article_channel.findall('item')):
     markdown_file.write(("Category: %s\n" % categories).encode('utf8'))
     markdown_file.write(("Featured-Image: %s\n" % featured_image_link).encode('utf8'))
     markdown_file.write(("Author: %s\n" % author).encode('utf8'))
-    markdown_file.write(("Twitter-Handle: @alioneye\n").encode('utf8'))
+    markdown_file.write("Twitter-Handle: @alioneye\n".encode('utf8'))
     if is_free == "0":
         markdown_file.write("Free-Story: False\n".encode('utf8'))
     else:
@@ -125,9 +208,9 @@ for post in tqdm(article_channel.findall('item')):
     markdown_file.write(md_content.encode('utf8'))
     markdown_file.close()
 
-    #print "----> File write complete."
+    # print "----> File write complete."
 
-    #print "----> Saving Article into the Database."
+    # print "----> Saving Article into the Database."
     try:
         db_conn = mysql.connector.connect(**db_config)
         cursor = db_conn.cursor()
@@ -143,6 +226,78 @@ for post in tqdm(article_channel.findall('item')):
         db_conn.commit()
         cursor.close()
         db_conn.close()
+
+    # Generate and Store Comment Information
+    snippet = create_snippet(md_content)
+    thread_id = 0
+
+    try:
+        db_conn = mysql.connector.connect(**db_config)
+        cursor = db_conn.cursor()
+        query = ("INSERT INTO threads (author, board, date_time_posted, is_illiniboard_article, title, topic, body, \
+                  article_url_slug, ip_address, last_response_date, url_friendly_title) VALUES (%s, %s, %s, %s, %s, \
+                  %s, %s, %s, %s, %s, %s)")
+        comment_title = "%s: The Comments" % title
+        thread_data = (author, 4, posted_date, 1, comment_title, 'C', snippet, slug, 'converter_generated',
+                       posted_date, comment_title)
+        cursor.execute(query, thread_data)
+        thread_id = cursor.lastrowid
+    except mysql.connector.Error as error:
+        print "error_number=%s" % error.errno
+        print "error=%s" % error
+    else:
+        db_conn.commit()
+        cursor.close()
+        db_conn.close()
+
+    # print "thread_id=%s" % thread_id
+    all_comments = post.findall('wp:comment', default_namespace)
+
+    comment_id_links = {}
+
+    for comment in all_comments:
+        comment_id = comment.find('wp:comment_id', default_namespace).text
+        comment_author = comment.find('wp:comment_author', default_namespace).text
+        comment_posted_date_string = comment.find('wp:comment_date_gmt', default_namespace).text
+        comment_parent_id = comment.find('wp:comment_parent', default_namespace).text
+        comment_content = comment.find('wp:comment_content', default_namespace).text
+
+        comment_posted_date = datetime.strptime(comment_posted_date_string, "%Y-%m-%d %H:%M:%S")
+        if comment_parent_id == "0":
+            comment_parent_id = None
+        else:
+            try:
+                comment_parent_id = comment_id_links[comment_parent_id]
+            except KeyError:
+                comment_parent_id = None
+
+
+        #print "----> Comment Information"
+        #print " * Comment ID: %s" % comment_id
+        #print " * Comment Parent Id: %s" % comment_parent_id
+        #print " * Comment Author: %s" % comment_author
+        #print " * Comment Date: %s" % comment_posted_date
+        #print " * Comment Content: %s" % comment_content
+
+        try:
+            db_conn = mysql.connector.connect(**db_config)
+            cursor = db_conn.cursor()
+            query = ("INSERT INTO posts (author, body, containing_thread, date_time_posted, ip_address, parent) \
+                      VALUES (%s, %s, %s, %s, %s, %s)")
+            post_data = (comment_author, comment_content, thread_id, comment_posted_date, "comment:imported",
+                         comment_parent_id)
+            cursor.execute(query, post_data)
+            post_id = cursor.lastrowid
+            comment_id_links[comment_id] = post_id
+        except mysql.connector.Error as error:
+            print "error_number=%s" % error.errno
+            print "error=%s" % error
+        else:
+            db_conn.commit()
+            cursor.close()
+            db_conn.close()
+
+        # print "----> Comment Saved."
 
     # Generate Category Information
     if post.find('category'):
