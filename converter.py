@@ -119,7 +119,7 @@ config = read_yaml('db_config.yml')
 db_config = config.get('database').get('development')
 
 # Parse out the image feed, and place all of the data into an in-memory table accessible by the Post ID as a key.
-image_tree = ET.parse('illiniboardcom.wordpress.2016-05-17.image.xml')
+image_tree = ET.parse('illiniboardcom.wordpress.images.2016-08-24.xml')
 image_root = image_tree.getroot()
 image_channel = image_root.find('channel')
 
@@ -134,7 +134,7 @@ print "Completed Parsing Images, all_images size is {%s}" % len(all_images)
 
 # Parse out the article feeds.
 print "Starting to Parse the Articles from the Article Feed"
-article_tree = ET.parse('illiniboardcom.wordpress.2016-05-17.xml')
+article_tree = ET.parse('illiniboardcom.wordpress.2016-08-24.xml')
 # article_tree = ET.parse('illiniboardcom.singleentry.xml')
 article_root = article_tree.getroot()
 article_channel = article_root.find('channel')
