@@ -57,8 +57,8 @@ for user in tqdm(user_list):
                      email, registration_ip_address, avatar_url, 1)
         cursor.execute(query, user_data)
     except mysql.connector.Error as error:
-        print "[save_article_in_db] :: error number=%s" % error.errno
-        print "[save_article_in_db] :: error=%s" % error
+        print "[save_user_in_db] :: error number=%s" % error.errno
+        print "[save_user_in_db] :: error=%s" % error
     else:
         db_conn.commit()
         cursor.close()

@@ -106,6 +106,22 @@ def create_snippet(text):
     return text[:abs(trim_distance)]
 
 
+def get_twitter_handle(author):
+    """
+    Quickly get the Twitter handle based on the author.
+    :param author:
+    :return:
+    """
+    if author == "Robert":
+        return "@alioneye"
+    elif author == "CraigG":
+        return "@CraigG_IB"
+    elif author == "Tyler":
+        return "@TylerCott"
+    else:
+        return "@IlliniBoard"
+
+
 print " ------====== IlliniBoard WordPress Converter ======------"
 default_namespace = {
     'excerpt': 'http://wordpress.org/export/1.2/excerpt/',
@@ -119,7 +135,7 @@ config = read_yaml('db_config.yml')
 db_config = config.get('database').get('development')
 
 # Parse out the image feed, and place all of the data into an in-memory table accessible by the Post ID as a key.
-image_tree = ET.parse('illiniboardcom.wordpress.images.2016-08-24.xml')
+image_tree = ET.parse('illiniboardcom.wordpress.2017-01-12.media.xml')
 image_root = image_tree.getroot()
 image_channel = image_root.find('channel')
 
@@ -134,7 +150,7 @@ print "Completed Parsing Images, all_images size is {%s}" % len(all_images)
 
 # Parse out the article feeds.
 print "Starting to Parse the Articles from the Article Feed"
-article_tree = ET.parse('illiniboardcom.wordpress.2016-08-24.xml')
+article_tree = ET.parse('illiniboardcom.wordpress.2017-01-12.xml')
 # article_tree = ET.parse('illiniboardcom.singleentry.xml')
 article_root = article_tree.getroot()
 article_channel = article_root.find('channel')
@@ -198,7 +214,7 @@ for post in tqdm(article_channel.findall('item')):
     markdown_file.write(("Category: %s\n" % categories).encode('utf8'))
     markdown_file.write(("Featured-Image: %s\n" % featured_image_link).encode('utf8'))
     markdown_file.write(("Author: %s\n" % author).encode('utf8'))
-    markdown_file.write("Twitter-Handle: @alioneye\n".encode('utf8'))
+    markdown_file.write(("Twitter-Handle: %s\n" % get_twitter_handle(author)).encode('utf8'))
     if is_free == "0":
         markdown_file.write("Free-Story: False\n".encode('utf8'))
     else:
@@ -237,9 +253,8 @@ for post in tqdm(article_channel.findall('item')):
         query = ("INSERT INTO threads (author, board, date_time_posted, is_illiniboard_article, title, topic, body, \
                   article_url_slug, ip_address, last_response_date, url_friendly_title) VALUES (%s, %s, %s, %s, %s, \
                   %s, %s, %s, %s, %s, %s)")
-        comment_title = "%s: The Comments" % title
-        thread_data = (author, 4, posted_date, 1, comment_title, 'C', snippet, slug, 'converter_generated',
-                       posted_date, comment_title)
+        thread_data = (author, 1, posted_date, 1, title, 'C', snippet, slug, 'converter_generated',
+                       posted_date, slug)
         cursor.execute(query, thread_data)
         thread_id = cursor.lastrowid
     except mysql.connector.Error as error:
