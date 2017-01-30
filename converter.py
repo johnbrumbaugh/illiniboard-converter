@@ -135,7 +135,7 @@ config = read_yaml('db_config.yml')
 db_config = config.get('database').get('development')
 
 # Parse out the image feed, and place all of the data into an in-memory table accessible by the Post ID as a key.
-image_tree = ET.parse('illiniboardcom.wordpress.2017-01-12.media.xml')
+image_tree = ET.parse('illiniboardcom.media.wordpress.2017-01-29.xml')
 image_root = image_tree.getroot()
 image_channel = image_root.find('channel')
 
@@ -150,7 +150,7 @@ print "Completed Parsing Images, all_images size is {%s}" % len(all_images)
 
 # Parse out the article feeds.
 print "Starting to Parse the Articles from the Article Feed"
-article_tree = ET.parse('illiniboardcom.wordpress.2017-01-12.xml')
+article_tree = ET.parse('illiniboardcom.wordpress.2017-01-29.xml')
 # article_tree = ET.parse('illiniboardcom.singleentry.xml')
 article_root = article_tree.getroot()
 article_channel = article_root.find('channel')
@@ -181,6 +181,7 @@ for post in tqdm(article_channel.findall('item')):
     md_content = md_converter.handle(full_content)
     directory_name = 'output/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day)
     file_name = '%s.md' % slug
+    full_slug_path = '/story/%s/%s/%s/%s' % (posted_date.year, posted_date.month, posted_date.day, slug)
 
     # Getting Flag Information.
     is_featured = "0"
@@ -231,9 +232,9 @@ for post in tqdm(article_channel.findall('item')):
         db_conn = mysql.connector.connect(**db_config)
         cursor = db_conn.cursor()
         query = ("INSERT INTO article (title, body, url_slug, date_created, date_published, featured_story, free_story, \
-                featured_image_link) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)")
+                featured_image_link, author) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)")
         # data_category_link = (category_slug, story_link)
-        article_data = (title, md_content, slug, posted_date, posted_date, is_featured, is_free, featured_image_link)
+        article_data = (title, md_content, slug, posted_date, posted_date, is_featured, is_free, featured_image_link, author)
         cursor.execute(query, article_data)
     except mysql.connector.Error as error:
         print "[save_article_in_db] :: error number=%s" % error.errno
@@ -253,7 +254,7 @@ for post in tqdm(article_channel.findall('item')):
         query = ("INSERT INTO threads (author, board, date_time_posted, is_illiniboard_article, title, topic, body, \
                   article_url_slug, ip_address, last_response_date, url_friendly_title) VALUES (%s, %s, %s, %s, %s, \
                   %s, %s, %s, %s, %s, %s)")
-        thread_data = (author, 1, posted_date, 1, title, 'C', snippet, slug, 'converter_generated',
+        thread_data = (author, 1, posted_date, 1, title, 'C', snippet, full_slug_path, 'converter_generated',
                        posted_date, slug)
         cursor.execute(query, thread_data)
         thread_id = cursor.lastrowid

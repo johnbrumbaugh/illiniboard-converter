@@ -66,7 +66,7 @@ for thread in tqdm(db_illiniboard.thread.find()):
         else:
             thread_topic = "O"
 
-        thread_data = (thread['author'], 4, thread['dateTimePosted'], thread['ipAddress'], thread['lastResponseDate'],
+        thread_data = (thread['author'], 1, thread['dateTimePosted'], thread['ipAddress'], thread['lastResponseDate'],
                        thread['title'], thread_topic, thread['urlFriendlyTitle'], thread['body'], child_posts.count())
         cursor.execute(query, thread_data)
         thread_id = cursor.lastrowid
